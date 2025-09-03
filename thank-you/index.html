@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,follow" />
+  <title>Terima Kasih — QuoXpress</title>
+  <link rel="canonical" href="https://aino.my/thank-you" />
+
+  <!-- GA4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-BKTFQ2SM0E"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-BKTFQ2SM0E');
+  </script>
+
+  <!-- Meta Pixel -->
+  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init','1416997619568260');
+    fbq('track','PageView');
+  </script>
+
+  <link rel="stylesheet" href="/global-assets/brand/palette.css" />
+  <link rel="stylesheet" href="/global-assets/brand/typography.css" />
+  <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+         src="https://www.facebook.com/tr?id=1416997619568260&ev=PageView&noscript=1" />
+  </noscript>
+
+  <div class="container">
+    <header class="header">
+      <strong>Ibnu Amin Ventures</strong>
+      <nav class="nav">
+        <a href="/index">Lead</a>
+        <a href="/sales">Sales</a>
+        <a href="/thank-you">Thank-You</a>
+        <a href="/login">Login</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/bonus">Bonus</a>
+        <a href="/support">Support</a>
+      </nav>
+    </header>
+
+    <section class="hero center" id="ty-hero">
+      <h1 id="ty-title">Terima kasih! Pesanan berjaya.</h1>
+      <p class="lead" id="ty-lead">Semak emel & klik ke Dashboard.</p>
+      <p class="cta-row">
+        <a class="btn btn-primary" id="ty-cta" href="/dashboard">Pergi ke Dashboard</a>
+      </p>
+    </section>
+
+    <footer class="site-footer">
+      <div class="site-footer__row">
+        <div>© <span id="year-thanks"></span> Ibnu Amin Ventures</div>
+        <nav>
+          <a href="/privacy">Privasi</a> ·
+          <a href="/terms">Terma</a> ·
+          <a href="/support">Sokongan</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script>
+    (function(){ var el=document.getElementById('year-thanks'); if(el) el.textContent=new Date().getFullYear(); })();
+  </script>
+
+  <!-- Purchase tracking (sekali sahaja) + status ToyyibPay + mapping billcode -->
+  <script>
+    (function () {
+      // --- Util ---
+      function qp(name){
+        try { return new URL(location.href).searchParams.get(name); } catch(e){ return null; }
+      }
+      function toNum(x){
+        var n = Number(String(x||'').replace(/[^\d.]/g,''));
+        return isFinite(n) ? n : 0;
+      }
+      function titleCase(s){ return (s||'').charAt(0).toUpperCase() + (s||'').slice(1); }
+
+      // --- Params dari ToyyibPay / fallback local ---
+      var statusId = qp('status_id') || qp('status');   // 1=success, 2=pending, 3=failed
+      var billcode = (qp('billcode') || '').toLowerCase();
+      var orderId  = qp('order_id') || '';
+      var plan     = (qp('plan') || qp('p') || '').toLowerCase();
+
+      // mapping billcode → plan (gunakan link Ustaz)
+      var planByCode = {
+        'qx-basic': 'basic',
+        'qx-standard': 'standard',
+        'qx-premium': 'premium'
+      };
+      if(!plan && billcode && planByCode[billcode]) plan = planByCode[billcode];
+
+      // baca variant A/B
+      var variant = 'NA';
+      try {
+        variant = sessionStorage.getItem('qxVariant') || localStorage.getItem('ab_variant') || 'NA';
+      } catch(e){}
+
+      // nilai bayaran
+      var value = toNum(qp('value') || qp('amount') || qp('amt') || qp('total') || qp('a'));
+      if(!(value > 0)){
+        try { value = toNum(localStorage.getItem('order_value')); } catch(e){}
+      }
+      if(!(value > 0)){
+        // fallback ikut plan (harga katalog)
+        var priceMap = { basic:49, standard:149, premium:299 };
+        value = priceMap[plan] || 0;
+      }
+      // fallback plan dari localStorage jika masih kosong
+      if(!plan){
+        try { plan = (localStorage.getItem('order_plan') || '').toLowerCase(); } catch(e){}
+      }
+
+      // --- UI: mesej ikut status ---
+      var h1  = document.getElementById('ty-title');
+      var lead= document.getElementById('ty-lead');
+      var cta = document.getElementById('ty-cta');
+
+      function setUI(state){
+        if(state === 'success'){
+          if(h1)   h1.textContent = 'Terima kasih! Pembayaran berjaya.';
+          if(lead) lead.textContent = (plan ? ('Pelan ' + titleCase(plan) + ' diaktifkan. ') : '') + 'Semak emel untuk akses & resit.';
+          if(cta){ cta.textContent = 'Pergi ke Dashboard'; cta.href = '/dashboard'; }
+        } else if(state === 'pending'){
+          if(h1)   h1.textContent = 'Pembayaran sedang diproses';
+          if(lead) lead.textContent = 'Kami sedang menunggu pengesahan bank. Anda akan menerima emel selepas berjaya.';
+          if(cta){ cta.textContent = 'Ke Laman Utama'; cta.href = '/'; }
+        } else { // failed/default
+          if(h1)   h1.textContent = 'Maaf, pembayaran tidak berjaya';
+          if(lead) lead.textContent = 'Sila cuba semula atau hubungi sokongan di aminvois.system@gmail.com.';
+          if(cta){ cta.textContent = 'Cuba Bayar Semula'; cta.href = '/sales#harga'; }
+        }
+      }
+
+      // tentukan state
+      var state = 'success';
+      if(statusId === '2') state = 'pending';
+      else if(statusId === '3') state = 'failed';
+      else if(!statusId && !(value > 0)) state = 'failed'; // tiada petunjuk apa-apa
+
+      setUI(state);
+
+      // --- Fire purchase (sekali sahaja) bila berjaya ---
+      if(state === 'success'){
+        // Cegah duplikasi
+        var tid = (billcode || orderId || ('TX-' + Date.now() + '-' + Math.random().toString(36).slice(2,8))).toUpperCase();
+        var firedKey = 'purchase_fired_tid';
+        try {
+          if(sessionStorage.getItem(firedKey) === tid) return;
+        } catch(e){}
+
+        if (window.gtag && (value > 0)) {
+          gtag('event', 'purchase', {
+            transaction_id: tid,
+            currency: 'MYR',
+            value: value,
+            affiliation: 'ToyyibPay',
+            variant: variant,
+            items: [{
+              item_id: plan || 'plan',
+              item_name: plan || 'plan',
+              price: value,
+              quantity: 1
+            }]
+          });
+        }
+
+        if (window.fbq && (value > 0)) {
+          fbq('track', 'Purchase', {
+            value: value,
+            currency: 'MYR',
+            content_name: plan || 'plan',
+            campaign_variant: variant
+          }, { eventID: tid });
+        }
+
+        // bersih & tandakan sudah tembak
+        try {
+          sessionStorage.setItem(firedKey, tid);
+          localStorage.removeItem('order_plan');
+          localStorage.removeItem('order_value');
+          localStorage.removeItem('order_pin');
+          localStorage.removeItem('order_ts');
+        } catch(e){}
+      }
+    })();
+  </script>
+<!-- Auto-claim entitlement (Supabase) selepas bayaran berjaya -->
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+  // ====== Supabase Project (publishable/anon key SAHAJA) ======
+  const SUPABASE_URL = 'https://qwmgqoypddsdderkhjdh.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bWdxb3lwZGRzZGRlcmtoamRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODg3MzEsImV4cCI6MjA3MjQ2NDczMX0.BRMruKK-_iZ6h6RcldAwhYDXivFMUp9xrvtoXij8nWM';
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Baca param & status ToyyibPay
+  const qs = new URLSearchParams(location.search);
+  const billcode = (qs.get('billcode') || '').toLowerCase();
+  const statusId = qs.get('status_id') || qs.get('status'); // 1=success
+
+  // Anggap berjaya jika status_id=1 ATAU skrip purchase sudah tembak
+  const purchaseFired = !!sessionStorage.getItem('purchase_fired_tid');
+  const isSuccess = (statusId === '1') || purchaseFired;
+
+  // Claim hanya jika user sedang login + transaksi berjaya + ada billcode
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session && isSuccess && billcode) {
+    try {
+      await fetch('/.netlify/functions/claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + session.access_token
+        },
+        body: JSON.stringify({ billcode })
+      });
+      // Standard & Premium → bawa ke /bonus
+      if (['qx-standard','qx-premium'].includes(billcode)) {
+        setTimeout(() => location.href = '/bonus', 600);
+      }
+    } catch (e) {
+      console.warn('Claim entitlement gagal:', e);
+    }
+  }
+</script>
+
+</body>
+</html>
