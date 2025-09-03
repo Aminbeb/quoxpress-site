@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bonus — QuoXpress</title>
+  <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <strong>QuoXpress — Bonus</strong>
+      <nav class="nav">
+		  
+		  <a href="/login?redirect=/dashboard" class="btn btn-primary" data-login>Log masuk</a>
+<button class="btn btn-outline" data-logout>Log keluar</button>
+
+        <a href="/dashboard">Dashboard</a>
+        <a href="/sales">Sales</a>
+        <a href="/support">Support</a>
+      </nav>
+    </header>
+
+    <section class="hero center">
+      <h1>Bonus Eksklusif</h1>
+      <p class="lead" id="bonus-lead">Sila log masuk untuk akses bonus anda.</p>
+      <div id="bonus-actions" class="cta-row" style="justify-content:center">
+        <!-- Log masuk -->
+        <a id="btn-login" href="/login?redirect=/bonus" class="btn btn-primary" style="display:none">Log masuk</a>
+
+        <!-- Claim akses manual -->
+        <div id="claim-box" class="card" style="display:none; padding:10px 12px">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+            <input id="input-billcode" type="text" placeholder="Masukkan BillCode (cth: qx-standard)"
+                   style="padding:10px 12px; border:1px solid #e2e8f0; border-radius:10px; min-width:260px">
+            <button id="btn-claim" class="btn btn-outline">Claim akses</button>
+            <small id="claim-msg" style="color:#475569"></small>
+          </div>
+          <small>Tip: Anda juga boleh tampal link penuh ToyyibPay, cth. <em>https://toyyibpay.com/qx-standard</em></small>
+        </div>
+      </div>
+    </section>
+
+    <!-- Basic -->
+    <section class="card" id="bonus-basic" style="display:none">
+      <h2>Bonus untuk BASIC</h2>
+      <ul>
+        <li>Template Quotation Pro (ZIP)</li>
+        <li>Skrip + Checklist</li>
+      </ul>
+      <p><a class="btn btn-outline" href="/downloads/qx-basic.zip">Muat turun</a></p>
+    </section>
+
+    <!-- Standard/Premium -->
+    <section class="card" id="bonus-pro" style="display:none">
+      <h2>Bonus untuk STANDARD &amp; PREMIUM</h2>
+      <ul>
+        <li>Dokumen SLA & Garis Masa (DOCX)</li>
+        <li>Template Follow-up Tahap 1–3 (Email)</li>
+        <li>Contoh CSV Import Item</li>
+      </ul>
+      <p class="cta-row">
+        <a class="btn btn-primary" href="/downloads/qx-standard-pack.zip">Muat turun</a>
+        <a class="btn" href="/downloads/qx-followup-pack.zip">Follow-up Pack</a>
+      </p>
+    </section>
+
+    <section class="card" id="bonus-locked" style="display:none">
+      <h2>Akses terkunci</h2>
+      <p>Sila naik taraf pelan untuk membuka bonus ini.</p>
+      <p><a class="btn btn-primary" href="/sales#harga">Naik Taraf Sekarang</a></p>
+    </section>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    // ==== Supabase (publishable/anon key SAHAJA) ====
+    const SUPABASE_URL = 'https://qwmgqoypddsdderkhjdh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bWdxb3lwZGRzZGRlcmtoamRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODg3MzEsImV4cCI6MjA3MjQ2NDczMX0.BRMruKK-_iZ6h6RcldAwhYDXivFMUp9xrvtoXij8nWM';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Elemen UI
+    const lead = document.getElementById('bonus-lead');
+    const elBasic = document.getElementById('bonus-basic');
+    const elPro = document.getElementById('bonus-pro');
+    const elLocked = document.getElementById('bonus-locked');
+    const btnLogin = document.getElementById('btn-login');
+    const claimBox = document.getElementById('claim-box');
+    const inputCode = document.getElementById('input-billcode');
+    const btnClaim = document.getElementById('btn-claim');
+    const claimMsg = document.getElementById('claim-msg');
+
+    // Util
+    const qs = new URLSearchParams(location.search);
+    function normalizeBillcode(v){
+      v = (v || '').trim();
+      try {
+        if (v.includes('toyyibpay.com/')) v = v.split('/').pop().split('?')[0];
+      } catch(_) {}
+      return v.toLowerCase();
+    }
+
+    // Semak sesi
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      lead.textContent = 'Sila log masuk dahulu.';
+      btnLogin.style.display = '';
+      // Auto isi billcode dari URL jika ada
+      const b = normalizeBillcode(qs.get('billcode'));
+      if (b) inputCode.value = b; // akan kekal selepas login (jika redirect simpan di query)
+    } else {
+      lead.textContent = 'Akses bonus anda di bawah.';
+      // Cuba auto-claim jika datang dengan ?billcode
+      const incomingCode = normalizeBillcode(qs.get('billcode'));
+
+      // Tunjuk bonus ikut entitlement sedia ada
+      const { data, error } = await supabase
+        .from('entitlements')
+        .select('plan')
+        .eq('user_id', session.user.id);
+
+      const plans = (data || []).map(r => r.plan);
+      const hasStandard = plans.includes('standard');
+      const hasPremium  = plans.includes('premium');
+      const hasBasic    = plans.includes('basic');
+
+      if (hasStandard || hasPremium) {
+        elPro.style.display = '';
+      } else if (hasBasic) {
+        elBasic.style.display = '';
+        elLocked.style.display = '';
+      } else {
+        // Tiada entitlement → benarkan claim manual
+        claimBox.style.display = '';
+        if (incomingCode) inputCode.value = incomingCode;
+      }
+
+      // Handler Claim
+      btnClaim?.addEventListener('click', async () => {
+        const billcode = normalizeBillcode(inputCode.value);
+        if (!billcode) {
+          claimMsg.textContent = 'Sila masukkan BillCode.';
+          claimMsg.style.color = '#b91c1c';
+          return;
+        }
+        claimMsg.textContent = 'Memproses...';
+        claimMsg.style.color = '#475569';
+        btnClaim.disabled = true;
+
+        try {
+          const res = await fetch('/.netlify/functions/claim', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + session.access_token
+            },
+            body: JSON.stringify({ billcode })
+          });
+          const data = await res.json().catch(()=> ({}));
+          if (res.ok && data?.ok) {
+            claimMsg.textContent = 'Akses diaktifkan. Memuat semula...';
+            claimMsg.style.color = '#0f766e';
+            // Tunjuk bonus ikut plan yang dipulangkan
+            if (data.plan === 'basic') {
+              elBasic.style.display = ''; elLocked.style.display = '';
+            } else {
+              elPro.style.display = ''; elLocked.style.display = 'none';
+              // Untuk Standard/Premium, boleh terus ke bonus penuh
+              setTimeout(()=> location.href = '/bonus', 700);
+            }
+          } else {
+            claimMsg.textContent = (data && data.error) ? data.error : 'Gagal claim. Pastikan BillCode betul.';
+            claimMsg.style.color = '#b91c1c';
+          }
+        } catch (e) {
+          claimMsg.textContent = 'Ralat rangkaian. Cuba lagi.';
+          claimMsg.style.color = '#b91c1c';
+        } finally {
+          btnClaim.disabled = false;
+        }
+      });
+    }
+  </script>
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  const supabase = createClient(
+    'https://qwmgqoypddsdderkhjdh.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bWdxb3lwZGRzZGRlcmtoamRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODg3MzEsImV4cCI6MjA3MjQ2NDczMX0.BRMruKK-_iZ6h6RcldAwhYDXivFMUp9xrvtoXij8nWM'
+  );
+
+  const btnLogin  = document.querySelector('[data-login]');
+  const btnLogout = document.querySelector('[data-logout]');
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (btnLogin)  btnLogin.style.display  = session ? 'none' : '';
+  if (btnLogout) btnLogout.style.display = session ? '' : 'none';
+
+  btnLogout?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await supabase.auth.signOut();
+    location.href = '/login';
+  });
+</script>
+
+</body>
+</html>
+
+
+
+
