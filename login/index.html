@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Log masuk — QuoXpress</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:40px auto;padding:0 16px}
+    input,button{padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px}
+    .row{display:flex;gap:8px}
+    .muted{color:#64748b}
+  </style>
+</head>
+<body>
+  <h1>Log masuk</h1>
+  <p class="muted">Masukkan emel anda, kami akan hantar pautan (magic link).</p>
+
+  <form id="login-form">
+    <div class="row">
+      <input id="email" type="email" required placeholder="you@email.com" style="flex:1">
+      <button id="btn" type="submit">Hantar link</button>
+    </div>
+  </form>
+  <p id="msg" class="muted"></p>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    // TODO: Gantikan dengan nilai projek anda
+    const SUPABASE_URL = 'https://qwmgqoypddsdderkhjdh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bWdxb3lwZGRzZGRlcmtoamRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4ODg3MzEsImV4cCI6MjA3MjQ2NDczMX0.BRMruKK-_iZ6h6RcldAwhYDXivFMUp9xrvtoXij8nWM';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const form = document.getElementById('login-form');
+    const emailEl = document.getElementById('email');
+    const btn = document.getElementById('btn');
+    const msg = document.getElementById('msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      btn.disabled = true; msg.textContent = 'Menghantar…';
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: emailEl.value.trim(),
+        options: {
+          emailRedirectTo: 'https://quoxpress.netlify.app/dashboard'
+        }
+      });
+
+      if (error) {
+        msg.textContent = 'Ralat: ' + error.message;
+        btn.disabled = false;
+      } else {
+        msg.textContent = 'Link dihantar. Sila semak emel dan klik untuk log masuk.';
+      }
+    });
+  </script>
+</body>
+</html>
