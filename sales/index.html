@@ -178,8 +178,8 @@
             <li>Dokumen tambahan (SLA, garis masa)</li>
             <li>Template follow-up automatik</li>
           </ul>
-          <!-- LINK TOYYIBPAY -->
-          <a href="https://toyyibpay.com/qx-standard" class="btn btn-primary" data-plan="Standard" data-cta="primary">Mula dengan Standard</a>
+          <!-- DINAMIK: panggil Netlify Function -->
+          <a id="bayar-standard" href="#" class="btn btn-primary" data-plan="Standard" data-cta="primary">Mula dengan Standard</a>
         </div>
         <div class="card">
           <h3>Premium</h3>
@@ -249,6 +249,28 @@
         }catch(_){ return 0; }
       }
 
+      // === Helper baharu: cipta bill Standard & redirect ke ToyyibPay ===
+      async function createStandardBillAndRedirect() {
+        const coupon = (localStorage.getItem('qx_coupon') || '').toUpperCase();
+        try {
+          const r = await fetch('/.netlify/functions/pay-standard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ coupon })
+          });
+          const j = await r.json().catch(() => null);
+          if (j && j.ok && j.billUrl) {
+            location.href = j.billUrl;  // redirect terus ke halaman bil ToyyibPay
+            return;
+          }
+          alert('Gagal cipta bil. Sila cuba lagi.');
+          console.error('ToyyibPay response:', j);
+        } catch (err) {
+          alert('Ralat rangkaian. Cuba semula.');
+          console.error(err);
+        }
+      }
+
       // 4) Handler CTA
       document.querySelectorAll('[data-cta="primary"]').forEach(function (el) {
         var isPlan = !!el.dataset.plan; // Basic/Standard/Premium?
@@ -290,8 +312,14 @@
               fbq('track','InitiateCheckout',{ value: value, currency:'MYR', content_name: plan || 'Checkout', campaign_variant: variant });
             }
 
-            // Pastikan event sempat dihantar
+            // === PATCH: guna function Netlify untuk Standard ===
             e.preventDefault();
+            if (plan === 'standard') {
+              setTimeout(createStandardBillAndRedirect, 200);
+              return;
+            }
+
+            // plan lain (basic/premium) kekal ikut href asal
             setTimeout(function(){ location.href = href; }, 220);
           } else if (href.startsWith('/free')) {
             if (typeof gtag === 'function') gtag('event','generate_lead',{ method:'lead_magnet', variant: variant });
