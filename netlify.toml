@@ -1,0 +1,11 @@
+# netlify.toml (root of repo)
+
+[build]
+  publish   = "."                 # folder public; biar "." jika repo ada /sales/
+  functions = "netlify/functions" # tempat Netlify Functions
+
+# Optional: redirect root ke /sales (boleh dibuang jika tak mahu)
+[[redirects]]
+  from = "/"
+  to   = "/sales/"
+  status = 200
