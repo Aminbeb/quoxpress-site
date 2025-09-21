@@ -1,5 +1,5 @@
-// Netlify Function
-export async function handler(event, context) {
+// netlify/functions/pay-standard.js
+export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -17,19 +17,16 @@ export async function handler(event, context) {
   try { body = JSON.parse(event.body || '{}'); } catch {}
   const { coupon = '', email = '', phone = '', name = '' } = body;
 
-  // === HARGA STANDARD ===
-  const BASE = 14900; // RM149.00 dalam sen
-  const amount = (String(coupon).toUpperCase() === 'TES20')
-    ? Math.round(BASE * 0.8)  // 20% diskaun
-    : BASE;
+  // Harga Standard RM149 (dalam sen)
+  const BASE = 14900;
+  const amount = (String(coupon).toUpperCase() === 'TES20') ? Math.round(BASE * 0.8) : BASE;
 
   const params = new URLSearchParams({
     userSecretKey: TOYYIB_SECRET,
     categoryCode: TOYYIB_CAT,
     billName: 'QuoXpress Standard (Tahunan)',
     billDescription: (String(coupon).toUpperCase() === 'TES20')
-      ? 'Standard (20% Testimoni)'
-      : 'Standard (Tahunan)',
+      ? 'Standard (20% Testimoni)' : 'Standard (Tahunan)',
     billAmount: String(amount),
     billReturnUrl: RETURN_URL,
     billCallbackUrl: CALLBACK_URL,
@@ -40,7 +37,7 @@ export async function handler(event, context) {
 
   const resp = await fetch('https://toyyibpay.com/index.php/api/createBill', {
     method: 'POST',
-    headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params
   });
 
@@ -50,6 +47,8 @@ export async function handler(event, context) {
     return { statusCode: 502, body: JSON.stringify({ ok:false, data }) };
   }
 
-  const billUrl = `https://toyyibpay.com/${billCode}`;
-  return { statusCode: 200, body: JSON.stringify({ ok:true, billUrl, amount }) };
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ ok:true, billUrl: `https://toyyibpay.com/${billCode}`, amount })
+  };
 }
