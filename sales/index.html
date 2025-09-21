@@ -180,6 +180,7 @@
           </ul>
           <!-- DINAMIK: panggil Netlify Function -->
           <a id="bayar-standard" href="#" class="btn btn-primary" data-plan="Standard" data-cta="primary">Mula dengan Standard</a>
+     
         </div>
         <div class="card">
           <h3>Premium</h3>
@@ -220,123 +221,125 @@
 
   <!-- A/B VARIANT + ANALYTICS + TOYYIBPAY REDIRECT -->
   <script>
-    (function () {
-      // 1) Baca varian (?v=A/B) & simpan utk /thank-you
-      var params = new URLSearchParams(location.search);
-      var raw = (params.get('v') || 'A').toUpperCase();
-      var variant = raw === 'B' ? 'B' : 'A';
-      try { localStorage.setItem('ab_variant', variant); } catch(e){}
+  (function () {
+    // 0) Baca param, simpan A/B & KUPON
+    var params  = new URLSearchParams(location.search);
+    var raw     = (params.get('v') || 'A').toUpperCase();
+    var variant = raw === 'B' ? 'B' : 'A';
 
-      // 2) Label CTA A/B (untuk CTA non-plan)
-      var labelA = 'Kemaskan quotation saya sekarang';
-      var labelB = 'Siapkan quotation premium dalam 3 minit';
-      var text = variant === 'B' ? labelB : labelA;
+    // ➜ PATCH PENTING: simpan kupon supaya function Netlify boleh guna
+    var couponFromUrl = (params.get('coupon') || params.get('kupon') || '').trim().toUpperCase();
+    try {
+      localStorage.setItem('ab_variant', variant);
+      if (couponFromUrl) localStorage.setItem('qx_coupon', couponFromUrl);
+    } catch (e) {}
 
-      // 3) Log view variant
-      if (typeof gtag === 'function') gtag('event', 'view_variant', { variant: variant });
-      if (typeof fbq  === 'function') fbq('trackCustom', 'ViewVariant', { variant: variant });
+    // 1) Label CTA A/B (untuk CTA non-plan)
+    var labelA = 'Kemaskan quotation saya sekarang';
+    var labelB = 'Siapkan quotation premium dalam 3 minit';
+    var text = variant === 'B' ? labelB : labelA;
 
-      // Helper: baca harga (RMxx) dari kad
-      function parsePrice(el){
-        try{
-          var card = el.closest('.card');
-          var priceEl = card ? card.querySelector('.price') : null;
-          var txt = priceEl ? priceEl.textContent : '';
-          var num = (txt.match(/([\d.,]+)/) || [,'0'])[1]
-            .replace(/[.,](?=\d{3}\b)/g,'')
-            .replace(',','.');
-          return Number(num);
-        }catch(_){ return 0; }
-      }
+    // 2) Log view variant (jika analytics wujud)
+    if (typeof gtag === 'function') gtag('event', 'view_variant', { variant: variant });
+    if (typeof fbq  === 'function') fbq('trackCustom', 'ViewVariant', { variant: variant });
 
-      // === Helper baharu: cipta bill Standard & redirect ke ToyyibPay ===
-      async function createStandardBillAndRedirect() {
-        const coupon = (localStorage.getItem('qx_coupon') || '').toUpperCase();
-        try {
-          const r = await fetch('/.netlify/functions/pay-standard', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ coupon })
-          });
-          const j = await r.json().catch(() => null);
-          if (j && j.ok && j.billUrl) {
-            location.href = j.billUrl;  // redirect terus ke halaman bil ToyyibPay
-            return;
-          }
-          alert('Gagal cipta bil. Sila cuba lagi.');
-          console.error('ToyyibPay response:', j);
-        } catch (err) {
-          alert('Ralat rangkaian. Cuba semula.');
-          console.error(err);
+    // Helper: baca harga (RMxx) dari kad
+    function parsePrice(el){
+      try{
+        var card   = el.closest('.card');
+        var priceEl= card ? card.querySelector('.price') : null;
+        var txt    = priceEl ? priceEl.textContent : '';
+        var num    = (txt.match(/([\d.,]+)/) || [,'0'])[1]
+                      .replace(/[.,](?=\d{3}\b)/g,'')
+                      .replace(',','.');
+        return Number(num);
+      }catch(_){ return 0; }
+    }
+
+    // === Netlify Function: cipta bill Standard & redirect ke ToyyibPay ===
+    async function createStandardBillAndRedirect() {
+      const coupon = (localStorage.getItem('qx_coupon') || '').toUpperCase();
+      try {
+        const r = await fetch('/.netlify/functions/pay-standard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coupon })
+        });
+        const j = await r.json().catch(() => null);
+        if (j && j.ok && j.billUrl) {
+          location.href = j.billUrl;  // redirect ke halaman bil ToyyibPay (BillCode)
+          return;
         }
+        alert('Gagal cipta bil. Sila cuba lagi.');
+        console.error('ToyyibPay response:', j);
+      } catch (err) {
+        alert('Ralat rangkaian. Cuba semula.');
+        console.error(err);
       }
+    }
 
-      // 4) Handler CTA
-      document.querySelectorAll('[data-cta="primary"]').forEach(function (el) {
-        var isPlan = !!el.dataset.plan; // Basic/Standard/Premium?
-        if (!isPlan && !el.dataset.lockText) {
-          el.textContent = text;
-        }
-        el.dataset.variant = variant;
+    // 3) Handler CTA (plan & non-plan)
+    document.querySelectorAll('[data-cta="primary"]').forEach(function (el) {
+      var isPlan = !!el.dataset.plan; // Basic/Standard/Premium?
+      if (!isPlan && !el.dataset.lockText) {
+        el.textContent = text;
+      }
+      el.dataset.variant = variant;
 
-        el.addEventListener('click', function (e) {
-          var plan  = (el.dataset.plan || '').toLowerCase();
-          var href  = el.getAttribute('href') || '';
-          var label = el.textContent.trim();
+      el.addEventListener('click', function (e) {
+        var plan  = (el.dataset.plan || '').toLowerCase();
+        var href  = el.getAttribute('href') || '';
+        var label = el.textContent.trim();
 
-          // Log klik umum
+        // Analytics
+        if (typeof gtag === 'function') gtag('event', 'cta_click', { variant: variant, plan: plan, cta_label: label, location: 'sales_page' });
+        if (typeof fbq  === 'function') fbq('trackCustom','CTA_Click',{ variant: variant, plan: plan, cta_label: label, location: 'sales_page' });
+
+        if (isPlan) {
+          // Simpan nilai untuk thank-you
+          var value = parsePrice(el) || 0;
+          try {
+            localStorage.setItem('order_plan',  plan);
+            localStorage.setItem('order_value', String(value));
+            localStorage.setItem('order_ts',    String(Date.now()));
+          } catch(_) {}
+
+          // Begin checkout
           if (typeof gtag === 'function') {
-            gtag('event', 'cta_click', { variant: variant, plan: plan, cta_label: label, location: 'sales_page' });
+            gtag('event','begin_checkout',{
+              variant: variant, value: value, currency:'MYR',
+              items: plan ? [{ item_name: plan, price: value, currency:'MYR' }] : undefined
+            });
           }
           if (typeof fbq === 'function') {
-            fbq('trackCustom','CTA_Click',{ variant: variant, plan: plan, cta_label: label, location: 'sales_page' });
+            fbq('track','InitiateCheckout',{ value: value, currency:'MYR', content_name: plan || 'Checkout', campaign_variant: variant });
           }
 
-          if (isPlan) {
-            // Ambil nilai & simpan untuk /thank-you
-            var value = parsePrice(el) || 0;
-            try {
-              localStorage.setItem('order_plan',  plan);
-              localStorage.setItem('order_value', String(value));
-              localStorage.setItem('order_ts',    String(Date.now()));
-            } catch(_) {}
-
-            // Log begin_checkout
-            if (typeof gtag === 'function') {
-              gtag('event','begin_checkout',{
-                variant: variant, value: value, currency:'MYR',
-                items: plan ? [{ item_name: plan, price: value, currency:'MYR' }] : undefined
-              });
-            }
-            if (typeof fbq === 'function') {
-              fbq('track','InitiateCheckout',{ value: value, currency:'MYR', content_name: plan || 'Checkout', campaign_variant: variant });
-            }
-
-            // === PATCH: guna function Netlify untuk Standard ===
-            e.preventDefault();
-            if (plan === 'standard') {
-              setTimeout(createStandardBillAndRedirect, 200);
-              return;
-            }
-
-            // plan lain (basic/premium) kekal ikut href asal
-            setTimeout(function(){ location.href = href; }, 220);
-          } else if (href.startsWith('/free')) {
-            if (typeof gtag === 'function') gtag('event','generate_lead',{ method:'lead_magnet', variant: variant });
-            if (typeof fbq  === 'function') fbq('track','Lead',{ content_name:'Lead Magnet', campaign_variant: variant });
+          // Standard → panggil Netlify Function
+          e.preventDefault();
+          if (plan === 'standard') {
+            setTimeout(createStandardBillAndRedirect, 200);
+            return;
           }
-        });
-      });
 
-      // 5) Track link lain ke /free (bukan data-cta="primary")
-      document.querySelectorAll('a[href^="/free"]').forEach(function (el) {
-        if (el.dataset.cta === 'primary') return;
-        el.addEventListener('click', function () {
+          // plan Basic/Premium → ikut href statik
+          setTimeout(function(){ location.href = href; }, 220);
+        } else if (href.startsWith('/free')) {
           if (typeof gtag === 'function') gtag('event','generate_lead',{ method:'lead_magnet', variant: variant });
           if (typeof fbq  === 'function') fbq('track','Lead',{ content_name:'Lead Magnet', campaign_variant: variant });
-        });
+        }
       });
-    })();
-  </script>
+    });
+
+    // 4) Track link lain ke /free (bukan data-cta="primary")
+    document.querySelectorAll('a[href^="/free"]').forEach(function (el) {
+      if (el.dataset.cta === 'primary') return;
+      el.addEventListener('click', function () {
+        if (typeof gtag === 'function') gtag('event','generate_lead',{ method:'lead_magnet', variant: variant });
+        if (typeof fbq  === 'function') fbq('track','Lead',{ content_name:'Lead Magnet', campaign_variant: variant });
+      });
+    });
+  })();
+</script>
 </body>
 </html>
