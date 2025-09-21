@@ -237,6 +237,40 @@
     }
   }
 </script>
+<script>
+(function () {
+  // Baca data yang kita simpan masa klik CTA
+  var plan   = localStorage.getItem('order_plan')  || '';
+  var value  = Number(localStorage.getItem('order_value') || '0');
+  var variant= localStorage.getItem('ab_variant')  || 'A';
+  var coupon = (localStorage.getItem('qx_coupon') || '').toUpperCase();
+
+  // Papar ringkasan asas (kalau ada elemen dengan id ini)
+  var el = document.getElementById('orderSummary');
+  if (el) el.textContent = plan ? (`Terima kasih! Pelan: ${plan.toUpperCase()} • Jumlah: RM${value} ` + (coupon?`• Kupon: ${coupon}`:'')) : 'Terima kasih atas bayaran anda.';
+
+  // Hantar event ke analitik (jika wujud)
+  if (typeof gtag === 'function') {
+    gtag('event','purchase',{
+      currency: 'MYR',
+      value: value,
+      coupon: coupon || undefined,
+      items: plan ? [{ item_name: plan, price: value, currency:'MYR' }] : undefined,
+      campaign_variant: variant
+    });
+  }
+  if (typeof fbq === 'function') {
+    fbq('track','Purchase',{ currency:'MYR', value:value, content_name: plan || 'QuoXpress', coupon: coupon || undefined, campaign_variant: variant });
+  }
+
+  // Clear data supaya tak “terbawa” ke sesi lain
+  try {
+    localStorage.removeItem('order_plan');
+    localStorage.removeItem('order_value');
+    localStorage.removeItem('order_ts');
+  } catch(_){}
+})();
+</script>
 
 </body>
 </html>
