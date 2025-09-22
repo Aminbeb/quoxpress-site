@@ -1,4 +1,3 @@
-
 // netlify/functions/pay-standard.js
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
@@ -11,23 +10,28 @@ export async function handler(event) {
   const CALLBACK_URL  = process.env.CALLBACK_URL || 'https://quoxpress.netlify.app/.netlify/functions/toyyib-callback';
 
   if (!TOYYIB_SECRET || !TOYYIB_CAT) {
-    return { statusCode: 500, body: JSON.stringify({ ok:false, error:'Missing env vars' }) };
+    console.error('Missing ENV', { TOYYIB_SECRET: !!TOYYIB_SECRET, TOYYIB_CAT: !!TOYYIB_CAT });
+    return { statusCode: 500, body: JSON.stringify({ ok:false, error:'Missing ToyyibPay ENV' }) };
   }
 
-  let body = {};
-  try { body = JSON.parse(event.body || '{}'); } catch {}
+  let body;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch {
+    body = {};
+  }
+
   const { coupon = '', email = '', phone = '', name = '' } = body;
 
-  // Harga Standard RM149 (dalam sen)
-  const BASE = 14900;
+  const BASE   = 14900; // RM149.00 dalam sen
   const amount = (String(coupon).toUpperCase() === 'TES20') ? Math.round(BASE * 0.8) : BASE;
 
   const params = new URLSearchParams({
     userSecretKey: TOYYIB_SECRET,
-    categoryCode: TOYYIB_CAT,
+    categoryCode:  TOYYIB_CAT,
     billName: 'QuoXpress Standard (Tahunan)',
-    billDescription: (String(coupon).toUpperCase() === 'TES20')
-      ? 'Standard (20% Testimoni)' : 'Standard (Tahunan)',
+    billDescription: (String(coupon).toUpperCase() === 'TES20') ?
+      'Standard (20% Testimoni)' : 'Standard (Tahunan)',
     billAmount: String(amount),
     billReturnUrl: RETURN_URL,
     billCallbackUrl: CALLBACK_URL,
@@ -36,20 +40,41 @@ export async function handler(event) {
     billExternalReferenceNo: `QXSTD-${Date.now()}`
   });
 
-  const resp = await fetch('https://toyyibpay.com/index.php/api/createBill', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params
-  });
+  try {
+    const resp = await fetch('https://toyyibpay.com/index.php/api/createBill', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+      body: params
+    });
 
-  let data; try { data = await resp.json(); } catch { data = null; }
-  const billCode = Array.isArray(data) && data[0]?.BillCode;
-  if (!billCode) {
-    return { statusCode: 502, body: JSON.stringify({ ok:false, data }) };
+    // ToyyibPay kadang-kadang balas JSON (array), kadang text
+    let data, text;
+    const ct = resp.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      data = await resp.json();
+    } else {
+      text = await resp.text();
+      try { data = JSON.parse(text); } catch { /* biar data kekal undefined */ }
+    }
+
+    // Cuba baca BillCode
+    const billCode =
+      (Array.isArray(data) && data[0]?.BillCode) ||
+      (data?.BillCode) || null;
+
+    if (!billCode) {
+      console.error('ToyyibPay no BillCode', { status: resp.status, data, text });
+      return {
+        statusCode: 502,
+        body: JSON.stringify({ ok:false, data, text, status: resp.status })
+      };
+    }
+
+    const billUrl = `https://toyyibpay.com/${billCode}`;
+    return { statusCode: 200, body: JSON.stringify({ ok:true, billUrl, amount }) };
+
+  } catch (err) {
+    console.error('ToyyibPay fetch error', err);
+    return { statusCode: 502, body: JSON.stringify({ ok:false, error: String(err) }) };
   }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ ok:true, billUrl: `https://toyyibpay.com/${billCode}`, amount })
-  };
 }
