@@ -1,11 +1,29 @@
-# netlify.toml (root of repo)
+# netlify.toml — Konfigurasi QuoXpress
 
 [build]
-  publish   = "."                 # folder public; biar "." jika repo ada /sales/
-  functions = "netlify/functions" # tempat Netlify Functions
+  # Folder utama untuk fail statik
+  publish   = "."
+  # Lokasi folder untuk fungsi serverless
+  functions = "netlify/functions"
 
-# Optional: redirect root ke /sales (boleh dibuang jika tak mahu)
+# Guna Node versi moden supaya fetch/Undici boleh dipakai dalam Functions
+[build.environment]
+  NODE_VERSION = "18"
+
+# Konfigurasi Functions
+[functions]
+  node_bundler = "esbuild"
+  # external_node_modules = []   # biar kosong kecuali perlu pakai modul luar
+
+# Redirect pilihan
+# 1) Bila buka root domain, terus pergi ke /sales/
 [[redirects]]
   from = "/"
   to   = "/sales/"
-  status = 200
+  status = 302
+
+# 2) Kalau ada orang buka /thankyou, terus redirect ke /thank-you/
+[[redirects]]
+  from = "/thankyou"
+  to   = "/thank-you/"
+  status = 301
